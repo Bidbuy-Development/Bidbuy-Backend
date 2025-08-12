@@ -1,7 +1,7 @@
 // Database Schema for User 
 import mongoose from "mongoose";
 
-export const buyerSchema =new mongoose.Schema({
+const buyerSchema =new mongoose.Schema({
 
     name: {
         type: String,
@@ -12,7 +12,11 @@ export const buyerSchema =new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
+        lowercase: true,
         trim: true
+    },
+    address: {
+        type: String
     },
     password: {
         type: String,
@@ -44,6 +48,12 @@ export const buyerSchema =new mongoose.Schema({
     token: {
         type: String
     },
+    phoneNumber: {
+        type: String
+    },
+    country: {
+        type: String
+    },
     emailToken: {
         type: String
     },
@@ -59,11 +69,11 @@ export const buyerSchema =new mongoose.Schema({
     versionKey: false
 });
 
-const Buyer = mongoose.model('Buyer', buyerSchema);
+export const Buyer = mongoose.model('Buyer', buyerSchema);
 
 
 // Vendor Model
-export const vendorSchema =new mongoose.Schema({
+const vendorSchema =new mongoose.Schema({
 
     name: {
         type: String,
@@ -74,7 +84,17 @@ export const vendorSchema =new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
+        lowercase: true,
         trim: true
+    },
+    phoneNumber: {
+        type: String
+    },
+    country: {
+        type: String
+    },
+    address: {
+        type: String
     },
     password: {
         type: String,
@@ -121,4 +141,4 @@ export const vendorSchema =new mongoose.Schema({
     versionKey: false
 });
 
-const Vendor = mongoose.model('Vendor', vendorSchema);
+export const Vendor = mongoose.model('Vendor', vendorSchema);
