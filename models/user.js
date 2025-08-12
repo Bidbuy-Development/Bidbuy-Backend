@@ -63,6 +63,10 @@ const buyerSchema =new mongoose.Schema({
     otpVerified: {
         type: Boolean,
         default: false
+    },
+    role: {
+        type: String,
+        default: "Buyer"
     }
 }, {
     timestamps: true,
@@ -135,6 +139,10 @@ const vendorSchema =new mongoose.Schema({
     otpVerified: {
         type: Boolean,
         default: false
+    },
+    role: {
+        type: String,
+        default: "Vendor"
     }
 }, {
     timestamps: true,
