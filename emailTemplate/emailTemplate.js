@@ -37,20 +37,51 @@ const emailTemplates = {
     `
   }),
 
+  //login template
+  loginTemplate: (name, loginTime, ipAddress) => ({
+  subject: 'BidBuy - New Login Detected',
+  html: `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Login Alert</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+        <div style="max-width: 600px; margin: auto; background: #ffffff; padding: 20px; 
+                    border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #333;">Hello ${name},</h2>
+            <p>We noticed a login to your BidBuy account.</p>
+            <p><strong>Login Time:</strong> ${loginTime}</p>
+            <p><strong>IP Address:</strong> ${ipAddress}</p>
+            <p>If this was you, you can safely ignore this email.</p>
+            <p>If you didn’t log in, please <a href="${BASE_URL}/reset-password" style="color: #007BFF; text-decoration: none;">reset your password</a> immediately and contact our support team.</p>
+            <p style="margin-top: 20px; font-size: 0.9em; color: #555;">
+                Stay safe,<br>
+                The BidBuy Team
+            </p>
+        </div>
+    </body>
+    </html>
+  `
+}),
+
+
   // Password Reset Template
-  passwordResetTemplate: (name, resetToken) => ({
+  passwordResetTemplate: (name, otp) => ({
     subject: 'BidBuy - Password Reset Request',
     html: `
       <html>
         <body>
           <p>Hi ${name},</p>
           <p>You requested to reset your password. Click the button below to proceed:</p>
-          <a href="${BASE_URL}/reset-password/${resetToken}" 
+          <a href="${BASE_URL}/reset-password/${otp}" 
              style="display:inline-block;padding:10px 20px;background:#28a745;color:#fff;border-radius:5px;text-decoration:none;">
             Reset Password
           </a>
           <p>If the button above doesn’t work, copy and paste this link into your browser:</p>
-          <p>${BASE_URL}/reset-password/${resetToken}</p>
+          <p>${BASE_URL}/reset-password/${otp}</p>
           <p>If you didn’t request this, you can safely ignore this email.</p>
         </body>
       </html>
