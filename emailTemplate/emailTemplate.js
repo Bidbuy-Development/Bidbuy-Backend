@@ -6,7 +6,7 @@ const BASE_URL = process.env.BASE_URL;
 const emailTemplates = {
   // Welcome & Email Verification Template
   welcomeTemplate: (name, emailToken) => ({
-    subject: 'Welcome to BidBuy - Please Verify Your Email',
+    subject: 'Welcome to BidBuy - Your Verification Code',
     html: `
       <!DOCTYPE html>
       <html lang="en">
@@ -16,18 +16,25 @@ const emailTemplates = {
           <title>Welcome to BidBuy</title>
       </head>
       <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-          <div style="max-width: 600px; margin: auto; background: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-              <h2 style="color: #333;">Welcome to BidBuy, ${name}!</h2>
+          <div style="max-width: 600px; margin: auto; background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+              <h2 style="color: #333; margin-top: 0;">Welcome to BidBuy, ${name}!</h2>
               <p>We're excited to have you join our community.</p>
-              <p>To complete your registration, please verify your email by clicking the button below:</p>
-              <a href="${BASE_URL}/verify-email/${emailToken}" 
-                 style="display: inline-block; background-color: #007BFF; color: #fff; padding: 10px 20px; 
-                        text-decoration: none; border-radius: 5px; font-weight: bold;">
-                 Verify Email
-              </a>
-              <p>If the button above doesn’t work, copy and paste the following link into your browser:</p>
-              <p>${BASE_URL}/verify-email/${emailToken}</p>
-              <p style="margin-top: 20px; font-size: 0.9em; color: #555;">
+              
+              <div style="background: #f8f9fa; padding: 20px; margin: 25px 0; text-align: center; border-radius: 4px; border: 1px dashed #ddd;">
+                  <p style="margin: 0 0 15px 0; color: #555;">Your verification code is:</p>
+                  <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #2c3e50; margin: 15px 0;">
+                      ${emailToken}
+                  </div>
+                  <p style="margin: 15px 0 0 0; color: #777; font-size: 14px;">
+                      This code will expire in 5 minutes.
+                  </p>
+              </div>
+              
+              <p>To complete your registration, please enter this code in the verification page.</p>
+              
+              <p style="margin-top: 30px; font-size: 0.9em; color: #777; border-top: 1px solid #eee; padding-top: 20px;">
+                  If you didn't request this verification, please ignore this email.<br>
+                  <br>
                   Thank you,<br>
                   The BidBuy Team
               </p>
