@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import logger from "../middleware/logger.js";
 
 export const sendEmail = async (to, subject, html, text, ) => {
     try {
@@ -21,8 +22,13 @@ export const sendEmail = async (to, subject, html, text, ) => {
         };
 
         await transporter.sendMail(mailOptions);
-        console.log('Email sent successfully');
+        // logger.info('Email sent successfully', { to, subject });
     } catch (error) {
-        console.error('Error sending email:', error);
+        // logger.error('Error sending email', { 
+        //     to, 
+        //     subject, 
+        //     error: error.message 
+        // });
+        throw error; // Re-throw to be handled by the calling function
     }
 }
