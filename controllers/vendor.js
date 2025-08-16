@@ -1,86 +1,76 @@
-import { Vendor } from '../models/vendor.js';
+import Vendor from '../models/vendor.js';
 import { sendEmail } from '../config/email.js';
 import { generateJwtToken } from '../helpers/token.js';
-import crypto from 'crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import emailTemplates from '../emailTemplate/emailTemplate.js';
+import logger from '../middleware/logger.js';
+import { validatePassword, validateEmail } from '../utils/validators.js';
 
-// Generate 6-digit OTP
+/**
+ * Generates a 6-digit OTP (One-Time Password)
+ * @returns {string} A 6-digit numeric string (e.g., '123456')
+ */
 const generateEmailToken = () => {
+    // This generates a random number between 100000 and 999999 (inclusive)
+    // and converts it to a string to ensure it's exactly 6 digits
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 // Helper function to send verification email
 const sendVerificationEmail = async (email, emailToken, name = 'there') => {
-    const verificationTemplate = emailTemplates.welcomeTemplate(name, emailToken);
-    
-    await sendEmail(
-        email,
-        verificationTemplate.subject,
-        verificationTemplate.html,
-        `Your verification code is: ${emailToken}. Please enter this code in the verification page.`
-    );
-};
-
-// Validate password requirements
-const validatePassword = (password) => {
-    const errors = [];
-    if (password.length < 8) {
-        errors.push('Password must be at least 8 characters long');
+    try {
+        const verificationTemplate = emailTemplates.welcomeTemplate(name, emailToken);
+        
+        await sendEmail(
+            email,
+            verificationTemplate.subject,
+            verificationTemplate.html,
+            `Your verification code is: ${emailToken}. Please enter this code in the verification page.`
+        );
+        // logger.info(`Verification email sent to ${email}`);
+    } catch (error) {
+        // logger.error(error, 'Error sending verification email');
+        throw new Error('Failed to send verification email');
     }
-    if (!/[a-z]/.test(password)) {
-        errors.push('Password must contain at least one lowercase letter');
-    }
-    if (!/[A-Z]/.test(password)) {
-        errors.push('Password must contain at least one uppercase letter');
-    }
-    if (!/\d/.test(password)) {
-        errors.push('Password must contain at least one number');
-    }
-    if (!/[@$!%*?&]/.test(password)) {
-        errors.push('Password must contain at least one special character (@$!%*?&)');
-    }
-    return errors;
 };
 
 // Vendor signup
 const signup = async (req, res) => {
     try {
         const { name, email, password, phoneNumber, state, country, address } = req.body;
-
-        // Validate required fields
-        if (!name || !email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Name, email, and password are required',
-                field: !name ? 'name' : !email ? 'email' : 'password'
-            });
-        }
-
+        
         // Check if vendor already exists
-        const existingVendor = await Vendor.findOne({ email });
+        const existingVendor = await Vendor.findOne({ email })
+            .maxTimeMS(10000) // 10 second timeout
+            .catch(err => {
+                throw new Error('Database operation timed out');
+            });
+            
         if (existingVendor) {
             return res.status(400).json({
                 success: false,
                 message: 'Email already in use',
-                field: 'email'
+                field: 'email',
+                code: 'EMAIL_EXISTS'
             });
         }
 
-        // Validate password
-        const passwordErrors = validatePassword(password);
-        if (passwordErrors.length > 0) {
+        // Validate password using the utility function
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.isValid) {
             return res.status(400).json({
                 success: false,
                 message: 'Password validation failed',
-                errors: passwordErrors,
+                errors: [passwordValidation.message],
                 field: 'password'
             });
         }
 
-        // Generate email verification token with 5-minute expiration
+        // Generate email verification token with configurable expiration
         const emailToken = generateEmailToken();
-        const emailTokenExpires = Date.now() + 300000; // 5 minutes from now
+        // Set OTP expiration from environment variable or default to 5 minutes (in milliseconds)
+        const otpExpirationMs = parseInt(process.env.OTP_EXPIRATION_MS) || 300000;
+        const emailTokenExpires = Date.now() + otpExpirationMs;
 
         // Create new vendor
         const vendor = new Vendor({
@@ -92,25 +82,66 @@ const signup = async (req, res) => {
             country,
             address,
             emailToken,
-            emailTokenExpires
+            emailTokenExpires,
+            role: 'Vendor'
         });
 
-        // Save vendor to database
-        await vendor.save();
-
-        // Send verification email with user's name
-        await sendVerificationEmail(vendor.email, emailToken, vendor.name);
-
-        // Return only the email for verification
-        res.status(201).json({
-            success: true,
-            message: 'Verification code sent to your email',
-            email: vendor.email
-        });
+        // Save vendor to database with timeout
+        try {
+            await vendor.save({ timeout: 10000 });
+            
+            // Send verification email with user's name
+            try {
+                await sendVerificationEmail(vendor.email, emailToken, vendor.name);
+                
+                // Return success response
+                return res.status(201).json({
+                    success: true,
+                    message: 'Verification code sent to your email',
+                    email: vendor.email,
+                    code: 'SIGNUP_SUCCESS'
+                });
+                
+            } catch (emailError) {
+                // Even if email fails, account is created, so return success
+                return res.status(201).json({
+                    success: true,
+                    message: 'Account created, but failed to send verification email',
+                    email: vendor.email,
+                    code: 'SIGNUP_SUCCESS_EMAIL_FAILED'
+                });
+            }
+            
+        } catch (saveError) {
+            // Handle duplicate key error
+            if (saveError.code === 11000) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Email already in use',
+                    field: 'email',
+                    code: 'EMAIL_EXISTS'
+                });
+            }
+            
+            // Handle validation errors
+            if (saveError.name === 'ValidationError') {
+                const messages = [];
+                for (const field in saveError.errors) {
+                    messages.push(saveError.errors[field].message);
+                }
+                return res.status(400).json({
+                    success: false,
+                    message: 'Validation error',
+                    errors: messages,
+                    code: 'VALIDATION_ERROR'
+                });
+            }
+            
+            // Handle other errors
+            throw saveError;
+        }
 
     } catch (error) {
-        console.error('Signup error:', error);
-        
         // Handle validation errors
         if (error.name === 'ValidationError') {
             const messages = [];
@@ -138,22 +169,20 @@ const verifyEmail = async (req, res) => {
     try {
         const { email, otp } = req.body;
         
-        // Validate input
+        // Simple validation
         if (!email || !otp) {
             return res.status(400).json({ 
                 success: false,
                 message: 'Email and OTP are required',
-                code: 'MISSING_FIELDS',
-                fields: []
+                field: !email ? 'email' : 'otp'
             });
         }
-        console.log(`Verification request for email: ${email} with OTP`);
 
-        // Find vendor by email
-        const vendor = await Vendor.findOne({ email });
+        // Find vendor by email and include necessary fields
+        const vendor = await Vendor.findOne({ email })
+            .select('+isVerified +status +emailToken +emailTokenExpires');
 
         if (!vendor) {
-            console.error('No vendor found with the provided email');
             return res.status(400).json({ 
                 success: false,
                 message: 'No account found with this email',
@@ -162,19 +191,35 @@ const verifyEmail = async (req, res) => {
             });
         }
 
-        // Check if already verified
-        if (vendor.isVerified) {
+        // Check if already verified by either isVerified flag or status
+        if (vendor.isVerified || vendor.status === 'completed') {
+            // If status is not updated, update it
+            if (!vendor.isVerified) {
+                await Vendor.updateOne(
+                    { _id: vendor._id },
+                    { $set: { isVerified: true } }
+                );
+            }
+            
             return res.status(200).json({
                 success: true,
-                message: 'Email is already verified',
-                code: 'ALREADY_VERIFIED'
+                message: 'Your account is already verified. You can proceed to login.',
+                code: 'ALREADY_VERIFIED',
+                isVerified: true
             });
         }
 
-        // Check if OTP matches and is not expired
-        // Convert both to string for comparison to handle number/string mismatch
+        // Check if OTP is present and matches
+        if (!vendor.emailToken) {
+            return res.status(400).json({
+                success: false,
+                message: 'No verification code found. Please request a new one.',
+                code: 'NO_VERIFICATION_CODE',
+                field: 'otp'
+            });
+        }
+
         if (String(vendor.emailToken) !== String(otp)) {
-            console.log(`OTP Mismatch: Expected ${vendor.emailToken} (${typeof vendor.emailToken}), Got ${otp} (${typeof otp})`);
             return res.status(400).json({
                 success: false,
                 message: 'Invalid verification code',
@@ -192,47 +237,43 @@ const verifyEmail = async (req, res) => {
             });
         }
 
-        // If we get here, all checks passed - verify the email
-
         try {
-            // Update vendor status to completed and mark as verified using findOneAndUpdate
-            // to bypass password validation
-            console.log('Updating vendor verification status...');
+            // Update vendor status to completed and mark as verified
             const updatedVendor = await Vendor.findOneAndUpdate(
                 { _id: vendor._id },
                 {
                     $set: {
                         status: 'completed',
                         isVerified: true,
-                        verifiedAt: Date.now()
+                        verifiedAt: new Date()
                     },
                     $unset: {
                         emailToken: "",
                         emailTokenExpires: ""
-                    },
-                    $addToSet: { usedTokens: otp } // Add the used OTP to prevent reuse
+                    }
                 },
                 { new: true, runValidators: false }
             );
             
             if (!updatedVendor) {
-                throw new Error('Failed to update vendor verification status');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Failed to update vendor verification status',
+                    code: 'UPDATE_FAILED',
+                    field: 'email'
+                });
             }
             
-            console.log('Vendor verification status updated successfully');
-
-            // Return success response
             return res.json({
                 success: true,
                 message: 'Email verified successfully! You can now log in to your account.'
             });
+            
         } catch (saveError) {
-            console.error('Error updating vendor verification status:', saveError);
             throw saveError;
         }
         
     } catch (error) {
-        console.error('Email verification error:', error);
         return res.status(500).json({ 
             success: false,
             message: 'An error occurred while verifying your email' 
@@ -247,7 +288,7 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Validate input
+        // Validate input using our utility function
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
@@ -256,18 +297,16 @@ const login = async (req, res) => {
             });
         }
 
-        // Basic email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
+        const { isValid: isValidEmail, message: emailError } = validateEmail(email);
+        if (!isValidEmail) {
             return res.status(400).json({
                 success: false,
-                message: 'Please enter a valid email address',
+                message: emailError,
                 field: 'email'
             });
         }
 
-        // Check if vendor exists - use findOne with lean() to get a plain JS object
-        // and explicitly include all fields we need
+        // Find vendor with necessary fields for authentication
         const vendor = await Vendor.findOne({ email })
             .select('+password +isVerified +status +emailToken +emailTokenExpires +name +role')
             .lean();
@@ -280,23 +319,9 @@ const login = async (req, res) => {
                 code: 'INVALID_CREDENTIALS'
             });
         }
-
-        // Get the full vendor document with password
-        const fullVendor = await Vendor.findOne({ email })
-            .select('+password +isVerified +status +emailToken')
-            .lean();
-            
-        if (!fullVendor) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid email or password',
-                code: 'INVALID_CREDENTIALS',
-                field: 'email'
-            });
-        }
         
-        // Verify password using bcrypt directly
-        const isPasswordValid = await bcrypt.compare(password, fullVendor.password);
+        // Verify password using bcrypt
+        const isPasswordValid = await bcrypt.compare(password, vendor.password);
         if (!isPasswordValid) {
             return res.status(400).json({
                 success: false,
@@ -306,23 +331,41 @@ const login = async (req, res) => {
             });
         }
 
-        // Check if email is verified using the full vendor document
-        if (!fullVendor.isVerified) {
-            // Check if we should resend verification
-            if (fullVendor.status === 'pending' || !fullVendor.emailToken) {
+        // Check if email is verified
+        if (!vendor.isVerified) {
+            // If email is already verified but status wasn't updated
+            if (vendor.status === 'completed' && !vendor.emailToken) {
+                await Vendor.updateOne(
+                    { _id: vendor._id },
+                    { $set: { isVerified: true } }
+                );
+            } 
+            // Resend verification if needed
+            else if (vendor.status === 'pending' || !vendor.emailToken) {
                 const emailToken = generateEmailToken();
-                fullVendor.emailToken = emailToken;
-                fullVendor.emailTokenExpires = Date.now() + 300000; // 5 minutes
-                await fullVendor.save();
+                // Set OTP expiration from environment variable or default to 5 minutes (in milliseconds)
+                const otpExpirationMs = parseInt(process.env.OTP_EXPIRATION_MS) || 300000;
+                const emailTokenExpires = Date.now() + otpExpirationMs;
                 
-                await sendVerificationEmail(fullVendor.email, emailToken, fullVendor.name);
+                await Vendor.updateOne(
+                    { _id: vendor._id },
+                    { 
+                        $set: { 
+                            emailToken,
+                            emailTokenExpires,
+                            status: 'pending'
+                        } 
+                    }
+                );
+                
+                await sendVerificationEmail(vendor.email, emailToken, vendor.name);
                 
                 return res.status(403).json({ 
                     success: false,
                     message: 'Please verify your email before logging in. A new verification code has been sent to your email.',
                     code: 'EMAIL_NOT_VERIFIED',
                     requiresVerification: true,
-                    email: fullVendor.email,
+                    email: vendor.email,
                     field: 'email'
                 });
             }
@@ -332,33 +375,33 @@ const login = async (req, res) => {
                 message: 'Please verify your email before logging in.',
                 code: 'EMAIL_NOT_VERIFIED',
                 requiresVerification: true,
-                email: fullVendor.email,
+                email: vendor.email,
                 field: 'email'
             });
         }
 
-        // Generate JWT token with full vendor info
+        // Generate JWT token with vendor info
         const token = generateJwtToken(
-            fullVendor._id,
-            fullVendor.name,
-            '24h' // Token expires in 24 hours
+            vendor._id,
+            vendor.name, // Using vendor's name as fullName parameter
+            process.env.JWT_EXPIRES_IN || '24h' // Token expiration from env or default to 24h
         );
 
-        // Update last login timestamp without triggering validation
+        // Update last login timestamp
         await Vendor.findByIdAndUpdate(
-            fullVendor._id,
-            { $set: { lastLogin: Date.now() } },
-            { runValidators: false }
+            vendor._id,
+            { $set: { lastLogin: new Date() } },
+            { new: true, runValidators: false }
         );
 
         // Prepare user response without sensitive data
         const userResponse = {
-            id: fullVendor._id,
-            name: fullVendor.name,
-            email: fullVendor.email,
-            role: fullVendor.role || 'vendor',
-            isVerified: fullVendor.isVerified,
-            status: fullVendor.status
+            id: vendor._id,
+            name: vendor.name,
+            email: vendor.email,
+            role: vendor.role,
+            isVerified: vendor.isVerified,
+            status: vendor.status
         };
 
         res.status(200).json({
@@ -367,11 +410,28 @@ const login = async (req, res) => {
             token,
             user: userResponse
         });
-
+        
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error during login' });
+        let errorMessage = 'Error during registration';
+        
+        if (error.name === 'ValidationError') {
+            errorMessage = 'Validation failed';
+        } else if (error.code === 11000) {
+            errorMessage = 'Email already in use';
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: errorMessage,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+        });
     }
 };
 
-export { signup, verifyEmail, login };
+// Export the controller functions
+export { 
+    signup,
+    verifyEmail,
+    login
+};
