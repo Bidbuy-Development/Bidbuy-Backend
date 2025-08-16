@@ -1,9 +1,32 @@
-// Vendor Model
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import { hashVendorPassword, addPasswordComparison } from '../middleware/hooks/vendor.hooks.js';
 
+/**
+ * Vendor Schema Definition
+ * 
+ * Fields:
+ * - name: Vendor's full name
+ * - email: Unique email address (used for login)
+ * - phoneNumber: Contact number (optional)
+ * - state/province: Vendor's state/province
+ * - country: Vendor's country
+ * - address: Physical address
+ * - password: Hashed password (not required for OAuth)
+ * - googleId: Google OAuth ID (if using Google login)
+ * - provider: Authentication provider ('local' or 'google')
+ * - avatar: URL to profile picture
+ * - isAdmin: Boolean flag for admin privileges
+ * - status: Account status ('pending' or 'completed')
+ * - isVerified: Email verification status (hidden from queries by default)
+ * - token: Authentication token
+ * - emailToken: Token for email verification
+ * - otp: One-time password for verification
+ * - otpVerified: OTP verification status
+ * - role: User role (default: "Vendor")
+ * - lastLogin: Timestamp of last login
+ * - verifiedAt: Timestamp when email was verified
+ */
 const vendorSchema = new mongoose.Schema({
-
     name: {
         type: String,
         required: true,
@@ -17,13 +40,7 @@ const vendorSchema = new mongoose.Schema({
         trim: true
     },
     phoneNumber: {
-        type: String,
-        validate: {
-            validator: function(v) {
-                return /^\+?[\d\s-]{1,16}$/.test(v);
-            },
-            message: props => `${props.value} is not a valid phone number! Must be max 16 characters.`
-        }
+        type: String
     },
     state: {
         type: String
@@ -39,12 +56,7 @@ const vendorSchema = new mongoose.Schema({
         required: function() {
             return !this.googleId; // Password not required if using Google OAuth
         },
-        validate: {
-            validator: function(v) {
-                return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(v);
-            },
-            message: 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.'
-        }
+        select: false // Never return password in query results
     },
     googleId: {
         type: String,
@@ -56,7 +68,7 @@ const vendorSchema = new mongoose.Schema({
         default: 'local'
     },
     avatar: {
-        type: String // For storing user's profile picture URL
+        type: String,
     },
     isAdmin: {
         type: Boolean,
@@ -70,57 +82,38 @@ const vendorSchema = new mongoose.Schema({
     isVerified: {
         type: Boolean,
         default: false,
-        select: false // Hide this field by default
     },
     token: {
-        type: String
+        type: String,
     },
     emailToken: {
-        type: String
+        type: String,
+    },
+    emailTokenExpires: {
+        type: Date,
     },
     otp: {
-        type: String
+        type: String,
     },
     otpVerified: {
         type: Boolean,
-        default: false
+        default: false,
     },
     role: {
         type: String,
-        default: "Vendor"
+        default: 'Vendor'
     },
-    usedTokens: [{
-        type: String,
-        select: false // Hide this field by default
-    }]
+    lastLogin: Date,
+    verifiedAt: Date
 }, {
     timestamps: true,
     versionKey: false
 });
 
-// Method to compare password
-vendorSchema.methods.comparePassword = async function(candidatePassword) {
-    try {
-        return await bcrypt.compare(candidatePassword, this.password);
-    } catch (error) {
-        throw new Error(error);
-    }
-};
+// Apply hooks and methods
+hashVendorPassword(vendorSchema);
+addPasswordComparison(vendorSchema);
 
-// Hash password before saving
-vendorSchema.pre('save', async function(next) {
-    // Only hash the password if it has been modified (or is new)
-    if (!this.isModified('password')) return next();
-    
-    try {
-        // Generate a salt
-        const salt = await bcrypt.genSalt(10);
-        // Hash the password with the salt
-        this.password = await bcrypt.hash(this.password, salt);
-        next();
-    } catch (error) {
-        next(error);
-    }
-});
+const Vendor = mongoose.model('Vendor', vendorSchema);
 
-export const Vendor = mongoose.model('Vendor', vendorSchema);
+export default Vendor;
