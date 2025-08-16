@@ -51,7 +51,6 @@ export const signUp = async (req, res) => {
         "Signup successful. Please check your email to verify your account.",
     });
   } catch (error) {
-    console.error("Signup Error:", error);
     res.status(500).json({ message: "Signup failed.", error: error.message });
   }
 };
@@ -100,7 +99,6 @@ export const login = async (req, res) => {
       data: { buyer },
     });
   } catch (error) {
-    console.error("Login Error:", error);
     res.status(500).json({ message: "Login failed.", error: error.message });
   }
 };
@@ -132,7 +130,6 @@ export const verifyEmail = async (req, res) => {
       .status(200)
       .json({ message: "Email verified successfully. You can now log in." });
   } catch (error) {
-    console.error("Email Verification Error:", error);
     res
       .status(500)
       .json({ message: "Email verification failed.", error: error.message });
