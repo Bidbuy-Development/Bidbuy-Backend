@@ -3,6 +3,7 @@ import connectDB from "./config/db.js";
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth_routes.js';
 import cors from 'cors';
+import logger from './middleware/logger.js';
 
 // Load environment variables
 dotenv.config();
@@ -41,19 +42,36 @@ app.get("/", (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ message: 'Something went wrong!' });
+    logger.error('Unhandled error', { 
+        error: err.message, 
+        stack: err.stack,
+        path: req.path,
+        method: req.method
+    });
+    
+    res.status(500).json({ 
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
 });
 
 // Start server
 const server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    logger.info(`Server is running on port ${PORT}`, { 
+        environment: process.env.NODE_ENV || 'development',
+        port: PORT 
+    });
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-    console.error('UNHANDLED REJECTION! 💥 Shutting down...');
-    console.error(err);
+    logger.error('UNHANDLED REJECTION! 💥 Shutting down...', {
+        error: err.message,
+        stack: err.stack,
+        name: err.name
+    });
+    
     server.close(() => {
         process.exit(1);
     });
