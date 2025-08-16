@@ -1,15 +1,17 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import logger from '../middleware/logger.js';
 
+// Load environment variables
 dotenv.config();
 
 //mongoDb database connection setup
 const connectDB =() =>{
     mongoose.connect(process.env.MONGO_URI) //mongo url
     try {
-        console.log("mongoDb connected ")
+        logger.info('MongoDB connected successfully')
     } catch (error) {
-       console.log("connection failed") 
+       logger.error('MongoDB connection failed', { error: error.message })
     }
 }
 
