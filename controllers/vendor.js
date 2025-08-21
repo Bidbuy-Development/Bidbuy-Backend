@@ -29,6 +29,7 @@ const sendVerificationEmail = async (email, emailToken, name = 'there') => {
         );
         // logger.info(`Verification email sent to ${email}`);
     } catch (error) {
+        console.log(error);
         // logger.error(error, 'Error sending verification email');
         throw new Error('Failed to send verification email');
     }
@@ -104,6 +105,7 @@ const signup = async (req, res) => {
                 
             } catch (emailError) {
                 // Even if email fails, account is created, so return success
+                console.log(emailError)
                 return res.status(201).json({
                     success: true,
                     message: 'Account created, but failed to send verification email',

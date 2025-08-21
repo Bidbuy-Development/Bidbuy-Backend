@@ -4,8 +4,11 @@ import { Buyer } from "../models/buyer.js";
 import { sendEmail } from "../config/email.js";
 import { generateJwtToken } from "../helpers/token.js";
 
+import dotenv from "dotenv";
+dotenv.config();
+
 // ========== SIGNUP ==========
-export const signUp = async (req, res) => {
+export const signUpBuyer = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
@@ -38,7 +41,7 @@ export const signUp = async (req, res) => {
     // Send verification email
     const verificationURL = `${req.protocol}://${req.get(
       "host"
-    )}/api/buyers/verify-email?token=${emailToken}`;
+    )}/api/auth/verify-email-buyers?token=${emailToken}`;
     await sendEmail(
       email,
       "Verify your email",
@@ -56,7 +59,7 @@ export const signUp = async (req, res) => {
 };
 
 // ========== LOGIN ==========
-export const login = async (req, res) => {
+export const loginBuyer = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -104,7 +107,7 @@ export const login = async (req, res) => {
 };
 
 // ========== EMAIL VERIFICATION ==========
-export const verifyEmail = async (req, res) => {
+export const verifyEmailBuyer = async (req, res) => {
   try {
     const { token } = req.query;
 
@@ -135,3 +138,4 @@ export const verifyEmail = async (req, res) => {
       .json({ message: "Email verification failed.", error: error.message });
   }
 };
+
