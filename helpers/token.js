@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
+import { successResponse, errorResponse } from './response.js'
 dotenv.config()
 
 // assign a new token for a user
@@ -29,16 +30,16 @@ export const decodeToken = (token) => {
       switch (error.name) {
         // if the token is invalid, throw an error
         case 'JsonWebTokenError':
-          res.status(400).json({ error: 'Invalid token' });
+          res.status(400).json(errorresponse('Invalid token'));
         // if the token is expired, throw an error
         case 'TokenExpiredError':
-          res.status(400).json({ error: 'User logged out... Please login to continue' });
+          res.status(400).json(errorResponse('User logged out... Please login to continue'));
         // if the token is not active yet, throw an error
         case 'NotBeforeError':
-          res.status(400).json({ error: 'Token not active' });
+          res.status(400).json(errorResponse('Token not active'));
         default:
             // if the token is not valid, throw an error
-          res.status(400).json({ error: 'Authorization failed' });
+          res.status(400).json(errorResponse('Authorization failed'));
       }
     }
   };

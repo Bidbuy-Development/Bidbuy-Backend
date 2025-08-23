@@ -1,6 +1,6 @@
 import express from 'express';
-import { signup, verifyEmail, login } from '../controllers/vendor.js';
-import {signUpBuyer, loginBuyer, verifyEmailBuyer} from '../controllers/buyer.js';
+import { signup, verifyEmail } from '../controllers/vendor.js';
+import {signUpBuyer, verifyEmailBuyer} from '../controllers/buyer.js';
 import {
     validateBuyerRegistration,
     validateBuyerLogin
@@ -11,16 +11,16 @@ import {
     validateOtpVerification 
 } from '../middleware/validations/vendor.validations.js';
 import { validate } from '../middleware/validate.js';
+import { loginUser } from '../controllers/auth.js';
 
 const router = express.Router();
 
+router.post('/login', validateBuyerLogin, validate, loginUser);
 // Seller authentication routes with validation
 router.post('/seller/signup', validateVendorRegistration, validate, signup);
-router.post('/seller/login', validateVendorLogin, validate, login);
 
 // Buyer authentication routes with validation
 router.post('/buyer/signup', validateBuyerRegistration, validate, signUpBuyer);
-router.post('/buyer/login', validateBuyerLogin, validate, loginBuyer);
 
 
 // Email verification endpoint with validation for vendors
