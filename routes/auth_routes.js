@@ -3,7 +3,7 @@ import { signup, verifyEmail } from '../controllers/vendor.js';
 import {signUpBuyer, verifyEmailBuyer} from '../controllers/buyer.js';
 import {
     validateBuyerRegistration,
-    validateBuyerLogin
+    validateLogin
 } from '../middleware/validations/buyer.validations.js';
 import { 
     validateVendorRegistration, 
@@ -15,7 +15,7 @@ import { loginUser } from '../controllers/auth.js';
 
 const router = express.Router();
 
-router.post('/login', validateBuyerLogin, validate, loginUser);
+router.post('/login', validateLogin, validate, loginUser);
 // Seller authentication routes with validation
 router.post('/seller/signup', validateVendorRegistration, validate, signup);
 
