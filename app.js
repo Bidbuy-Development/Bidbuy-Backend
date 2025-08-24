@@ -3,7 +3,7 @@ import connectDB from "./config/db.js";
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth_routes.js';
 import cors from 'cors';
-import logger from './middleware/logger.js';
+import logger from './utils/logger.js';
 
 // Load environment variables
 dotenv.config();

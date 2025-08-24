@@ -76,7 +76,7 @@ export const validateBuyerRegistration = [
 /**
  * Validates buyer login data
  */
-export const validateBuyerLogin = [
+export const validateLogin = [
     // Email validation
     body('email')
         .trim()
