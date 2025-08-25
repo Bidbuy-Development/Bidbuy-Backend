@@ -19,3 +19,22 @@ export const sendVerificationEmail = async (email, emailToken, name = 'there') =
         throw new Error('Failed to send verification email');
     }
 };
+
+// Helper function to send password reset email
+export const sendPasswordResetEmail = async (email, otp, name = 'there') => {
+    try {
+        const resetTemplate = emailTemplates.passwordResetTemplate(name, otp);
+        
+        await sendEmail(
+            email,
+            resetTemplate.subject,
+            resetTemplate.html,
+            `Your password reset code is: ${otp}. Please enter this code in the password reset page.`
+        );
+        // logger.info(`Password reset email sent to ${email}`);
+    } catch (error) {
+        console.log(error);
+        // logger.error(error, 'Error sending password reset email');
+        throw new Error('Failed to send password reset email');
+    }
+};

@@ -99,10 +99,20 @@ const vendorSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    otpExpires: {
+        type: Date,
+    },
     role: {
         type: String,
         default: 'Vendor'
     },
+    resetToken:{
+        type:String
+    },
+    resetTokenExpires:{
+        type:Date
+    },
+    
     lastLogin: Date,
     verifiedAt: Date
 }, {

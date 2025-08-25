@@ -1,11 +1,12 @@
 import { Buyer } from "../models/buyer.js";
 import Vendor from '../models/vendor.js';
 import { generateJwtToken } from '../helpers/token.js';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { sendEmail } from '../config/email.js';
 import { successResponse, errorResponse } from '../helpers/response.js'
 import { validatePassword, validateEmail } from '../utils/validators.js';
-import { sendVerificationEmail } from '../helpers/sendEmail.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../helpers/sendEmail.js';
 import { generateOtp } from '../utils/otp.js';
 
 // ========== LOGIN FOR BOTH BUYERS AND VENDOR ==========
@@ -136,5 +137,113 @@ export const loginUser = async (req, res) => {
         ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
       }
     ));
+  }
+};
+
+
+// ========== FORGOTTEN PASSWORD FOR BOTH BUYERS AND VENDOR ==========
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json(errorResponse("Email is required"));
+
+    const { isValid, message: emailError } = validateEmail(email);
+    if (!isValid) return res.status(400).json(errorResponse(emailError));
+
+    const user = await Vendor.findOne({ email }) || await Buyer.findOne({ email });
+    if (!user) {
+      // Don't reveal email existence
+      return res.status(200).json(successResponse("If that email is registered, you will receive a password reset email shortly."));
+    }
+
+    const otp = generateOtp();
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+
+    user.otp = hashedOtp;
+    user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 mins
+    await user.save();
+
+    await sendPasswordResetEmail(user.email, otp, user.name);
+
+    res.status(200).json(successResponse("If that email is registered, you will receive a password reset email shortly."));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(errorResponse("Server error."));
+  }
+};
+
+// ========== VERIFY RESET OTP FOR BOTH BUYERS AND VENDOR ==========
+export const verifyResetOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json(errorResponse("Email and OTP are required"));
+    }
+
+    const user = await Vendor.findOne({ email }) || await Buyer.findOne({ email });
+    if (!user) return res.status(400).json(errorResponse("Invalid request"));
+
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    if (!user.otp || user.otp !== hashedOtp || user.otpExpires < Date.now()) {
+      return res.status(400).json(errorResponse("Invalid or expired OTP"));
+    }
+
+    user.otp = undefined;
+    user.otpExpires = undefined;
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    user.resetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+    user.resetTokenExpires = Date.now() + 15 * 60 * 1000; // 15 mins
+    await user.save();
+
+    res.status(200).json(successResponse("OTP verified. Use this token to reset password.", { resetToken }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(errorResponse("Server error."));
+  }
+};
+
+// ========== RESET PASSWORD FOR BOTH BUYERS AND VENDOR ==========
+export const resetPassword = async (req, res) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+
+    if (!resetToken || !newPassword) {
+      return res.status(400).json(errorResponse("Token and new password are required"));
+    }
+
+    if (!validatePassword(newPassword)) {
+      return res.status(400).json(errorResponse("Password does not meet security requirements"));
+    }
+
+    // Hash the token to compare with DB
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    // Find user with valid token (still not expired)
+    const user = await Vendor.findOne({
+      resetToken: hashedToken,
+      resetTokenExpires: { $gt: Date.now() },
+    }) || await Buyer.findOne({
+      resetToken: hashedToken,
+      resetTokenExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json(errorResponse("Invalid or expired reset token"));
+    }
+
+    // Update password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+
+    // Clear token after reset
+    user.resetToken = undefined;
+    user.resetTokenExpires = undefined;
+    await user.save();
+
+    res.status(200).json(successResponse("Password reset successful. You can now log in."));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(errorResponse("Server error."));
   }
 };
