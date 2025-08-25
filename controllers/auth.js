@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import { sendEmail } from '../config/email.js';
 import { successResponse, errorResponse } from '../helpers/response.js'
 import { validatePassword, validateEmail } from '../utils/validators.js';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../helpers/sendEmail.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendPasswordResetSuccessEmail } from '../helpers/sendEmail.js';
 import { generateOtp } from '../utils/otp.js';
 
 // ========== LOGIN FOR BOTH BUYERS AND VENDOR ==========
@@ -240,6 +240,8 @@ export const resetPassword = async (req, res) => {
     user.resetToken = undefined;
     user.resetTokenExpires = undefined;
     await user.save();
+    // Send confirmation email
+    await sendPasswordResetSuccessEmail(user.email, user.name);
 
     res.status(200).json(successResponse("Password reset successful. You can now log in."));
   } catch (err) {

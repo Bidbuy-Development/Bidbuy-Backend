@@ -94,7 +94,7 @@ html: `
           <div style="background: #f8f9fa; padding: 20px; margin: 25px 0; text-align: center; border-radius: 4px; border: 1px dashed #ddd;">
               <p style="margin: 0 0 15px 0; color: #555;">Use the following code to reset your password:</p>
               <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #e74c3c; margin: 15px 0;">
-                  ${emailToken}
+                  ${otp}
               </div>
               <p style="margin: 15px 0 0 0; color: #777; font-size: 14px;">
                   This code will expire in 5 minutes.
@@ -113,7 +113,31 @@ html: `
   </html>
 `
   }),
-
+  //successful password reset template
+  passwordResetSuccessTemplate: (name) => ({
+    subject: 'BidBuy - Password Successfully Reset',
+    html: `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset Successful - BidBuy</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+          <div style="max-width: 600px; margin: auto; background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+              <h2 style="color: #333; margin-top: 0;">Hello ${name},</h2>
+              <p>Your password has been successfully reset.</p>
+              <p>If you did not perform this action, please contact our support team immediately to secure your account.</p>
+              <p style="margin-top: 30px; font-size: 0.9em; color: #777; border-top: 1px solid #eee; padding-top: 20px;">
+                  Stay safe,<br>
+                  The BidBuy Team
+              </p>
+          </div>
+      </body>
+      </html>
+    `
+  }),
   // Bid Confirmation Template
   bidConfirmationTemplate: (name, bidId) => ({
     subject: 'BidBuy - Your Bid Has Been Placed',
