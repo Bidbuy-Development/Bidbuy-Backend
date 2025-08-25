@@ -27,7 +27,7 @@ router.post('/buyer/signup', validateBuyerRegistration, validate, signUpBuyer);
 router.post('/verify-email', validateOtpVerification, validate, verifyEmail);
 
 // Email verification endpoint for buyers(It is a GET request because we are using a token to verify)
-router.get('/verify-email-buyers', verifyEmailBuyer); 
+router.post('/verify-email-buyers', verifyEmailBuyer); 
 
 
 //forgotten password route for both buyers and vendors
