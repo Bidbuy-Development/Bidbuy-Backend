@@ -153,7 +153,7 @@ export const forgotPassword = async (req, res) => {
     const user = await Vendor.findOne({ email }) || await Buyer.findOne({ email });
     if (!user) {
       // Don't reveal email existence
-      return res.status(200).json(successResponse("If that email is registered, you will receive a password reset email shortly."));
+      return res.status(400).json(successResponse("email not found or does not exist."));
     }
 
     const otp = generateOtp();
@@ -185,7 +185,7 @@ export const verifyResetOtp = async (req, res) => {
 
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     if (!user.otp || user.otp !== hashedOtp || user.otpExpires < Date.now()) {
-      return res.status(400).json(errorResponse("Invalid or expired OTP"));
+      return res.status(400).json(errorResponse("Invalid or expired OTP."));
     }
 
     user.otp = undefined;
@@ -193,8 +193,7 @@ export const verifyResetOtp = async (req, res) => {
 
     const resetToken = crypto.randomBytes(32).toString("hex");
     user.resetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
-    user.resetTokenExpires = Date.now() + 15 * 60 * 1000; // 15 mins
-    await user.save();
+    user.resetTokenExpires = Date.now() + 24 *60 * 60 * 1000; // 24hr
 
     res.status(200).json(successResponse("OTP verified. Use this token to reset password.", { resetToken }));
   } catch (err) {
@@ -232,14 +231,19 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json(errorResponse("Invalid or expired reset token"));
     }
 
-    // Update password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
+    // Conditionally hash password based on user type
+    if (user instanceof Buyer) {
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      user.password = hashedPassword;
+    } else if (user instanceof Vendor) {
+      user.password = newPassword; 
+    }
 
-    // Clear token after reset
+    // Clear reset token fields
     user.resetToken = undefined;
     user.resetTokenExpires = undefined;
     await user.save();
+
     // Send confirmation email
     await sendPasswordResetSuccessEmail(user.email, user.name);
 
