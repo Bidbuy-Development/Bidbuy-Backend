@@ -60,6 +60,9 @@ const buyerSchema =new mongoose.Schema({
     emailToken: {
         type: String
     },
+    emailTokenExpires: {
+        type: Date,
+    },
     otp: {
         type: String
     },
@@ -67,10 +70,22 @@ const buyerSchema =new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    otpExpires: {
+        type: String,
+    },
     role: {
         type: String,
         default: "Buyer"
-    }
+    },
+    resetToken:{
+        type:String
+    },
+    resetTokenExpires:{
+        type:Date
+    },
+    
+    lastLogin: Date,
+    verifiedAt: Date
 }, {
     timestamps: true,
     versionKey: false

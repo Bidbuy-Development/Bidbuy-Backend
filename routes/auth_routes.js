@@ -11,7 +11,7 @@ import {
     validateOtpVerification 
 } from '../middleware/validations/vendor.validations.js';
 import { validate } from '../middleware/validate.js';
-import { loginUser } from '../controllers/auth.js';
+import { forgotPassword, loginUser,verifyResetOtp, resetPassword } from '../controllers/auth.js';
 
 const router = express.Router();
 
@@ -27,7 +27,15 @@ router.post('/buyer/signup', validateBuyerRegistration, validate, signUpBuyer);
 router.post('/verify-email', validateOtpVerification, validate, verifyEmail);
 
 // Email verification endpoint for buyers(It is a GET request because we are using a token to verify)
-router.get('/verify-email-buyers', verifyEmailBuyer); 
+router.post('/verify-email-buyers', verifyEmailBuyer); 
 
 
+//forgotten password route for both buyers and vendors
+router.post('/forgot-password',forgotPassword);
+
+ //verify reset otp route for both buyers and vendors
+router.post('/verify-reset-otp',verifyResetOtp);
+
+//reset password route for both buyers and vendors
+router.post('/reset-password',resetPassword);
 export default router;
