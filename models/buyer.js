@@ -83,6 +83,14 @@ const buyerSchema =new mongoose.Schema({
     resetTokenExpires:{
         type:Date
     },
+
+    preferences: [
+    {
+      type: String, // category comes from frontend
+      trim: true,
+    }
+  ],
+
     
     lastLogin: Date,
     verifiedAt: Date
